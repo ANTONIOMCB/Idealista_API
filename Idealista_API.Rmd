@@ -1,0 +1,131 @@
+---
+title: "Idealista_API"
+output: html_notebook
+Author: Antonio Martin-Cobos | Data Analytics Manager
+---
+
+
+References
+#https://www.r-bloggers.com/2018/10/converting-nested-json-to-a-tidy-data-frame-with-r/
+
+
+Librerias
+
+```{r}
+if(!require("jsonlite")){install.packages("jsonlite")}
+if(!require("httr")){install.packages("httr")}
+if(!require("data.table")){install.packages("data.table")}
+```
+
+
+
+Necesitamos los parámetros de la API de Idealista. Pueden conseguirse solicitándolos en el email api@idealista.com
+
+Una vez tenemos estos parámetros los añadimos en el código debajo:
+
+```{r}
+consumer_key <- "escribe aqui tu Apikey"
+consumer_secret <- "escribe aqui tu secret"
+
+#Use basic authentication
+secret <- jsonlite::base64_enc(paste(consumer_key, consumer_secret, sep = ":"))
+req <- httr::POST("https://api.idealista.com/oauth/token",
+                  httr::add_headers(
+                    #"Authorization" = paste("Basic", gsub("n", "", secret)),
+                    "Authorization" = paste("Basic", secret, sep = " "),
+                    "Content-Type" = "application/x-www-form-urlencoded;charset=utf-8"
+                  ),
+                  body = "grant_type=client_credentials"
+)
+
+token <- paste("Bearer", httr::content(req)$access_token)
+```
+
+
+
+Esto genera una respuesta desde Idealista que nos proporciona el token para acceder a los datos. Una vez hemos
+recibido dicho token podemos ejecutar una solicitud basándonos en el siguiente script:
+
+```{r}
+#url user parameters
+x = '40.765456'
+y = '-3.249566'
+maxItems = '50'
+distance = '3000'
+type = 'homes'
+op = 'sale'
+minprice = '200000'
+maxprice = '300000'
+minsize = '60'
+maxsize = '120'
+
+
+#url fixed parameters
+site = 'https://api.idealista.com/3.5/es/search?'
+loc = 'center='
+country = '&country=es'
+maxitems = '&maxItems=50'
+pages = '&numPage=1'
+dist = '&distance='
+property = '&propertyType='
+operation = '&operation='
+pricefrom = '&minPrice='
+priceto = '&maxPrice='
+misize = '&minSize='
+masize = '&maxSize='
+chalet = '&chalet=0'
+
+
+url <- paste(site, loc, x, ',', y, country, maxitems, pages, dist, distance, property, type, operation, op, pricefrom, minprice, priceto, maxprice, misize, minsize, masize, maxsize, sep = "")
+```
+
+
+
+Los nombres de los parámetros indican claramente el elemento que van a filtrar en la solicitud. En el caso expuesto arriba
+se están solicitando las viviendas en un radio de 3 km centrado en las coordanadas x y, que tengan un precio de venta entre
+200.000 y 300.000 EUR, de entre 60 y 120 m2 y que no sean chalet.
+
+
+Una vez tenemos la URL construida sólo necesitamos hacer la solicitud a través de la API de Idealista para obtener el resultado:
+
+```{r}
+res <- httr::POST(url, httr::add_headers("Authorization" = token))
+
+```
+
+
+
+Esto genera un objeto tipo respuesta:
+
+> attributes(res)
+$names
+ [1] "url"         "status_code" "headers"     "all_headers" "cookies"     "content"     "date"        "times"       "request"     "handle"     
+
+$class
+[1] "response"
+
+
+Ahora nos queda extraer los datos (en formato JSON) contenidos en esta respuesta y limpiar un poco el resultado:
+
+```{r}
+#extract the JSON content
+cont_raw <- httr::content(res)
+
+#bind the different lists into a table
+data <- rbindlist(cont_raw[["elementList"]], use.names=TRUE, fill=TRUE, idcol=NULL)
+
+#table cleanup
+data[,suggestedTexts:=NULL]
+data[,detailedType:=NULL]
+data <- distinct(data)
+data <- data[order(data[["propertyCode"]])]
+```
+
+
+
+Finalmente obtenemos una tabla con el listado de anuncios que cumplen los parámetros del filtro inicial, en un formato fácil de 
+analizar.
+
+La mayor limitación de esta API es claramente el límite de 50 resultados por consulta, lo que la hace claramente insuficiente para 
+un análisis serio. Sin embargo, si estamos buscando algo muy específico este script puede ser de ayuda para obtener rádpidamente datos
+sobre precios de anuncios que cumplan dichas características.
