@@ -4,10 +4,9 @@ output: html_notebook
 Author: Antonio Martin-Cobos | Data Analytics Manager
 ---
 
-
 References
-#https://www.r-bloggers.com/2018/10/converting-nested-json-to-a-tidy-data-frame-with-r/
-
+https://www.r-bloggers.com/2018/10/converting-nested-json-to-a-tidy-data-frame-with-r/
+Requires Rtools
 
 Librerias
 
@@ -15,6 +14,7 @@ Librerias
 if(!require("jsonlite")){install.packages("jsonlite")}
 if(!require("httr")){install.packages("httr")}
 if(!require("data.table")){install.packages("data.table")}
+if(!require("tidyverse")){install.packages("tidyverse")}
 ```
 
 
